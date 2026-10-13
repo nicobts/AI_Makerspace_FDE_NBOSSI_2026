@@ -115,12 +115,12 @@ if (Test-Path $EnvFile) {
     Write-Bad ".env not found at the repo root" "copy .env.template .env, then fill it in"
 }
 
-$ChallengeEnv = Join-Path $Root "01_Product_Engineering\challenge\enterprise_fde_challenge\.env"
+$ChallengeEnv = Join-Path $Root "01_Product_Engineering\challenge\.env"
 if (Test-Path $ChallengeEnv) {
     Write-Ok "the Week 1 challenge has its own .env"
 } else {
     Write-Warn "the Week 1 challenge has no .env yet" `
-               "copy .env.example .env inside enterprise_fde_challenge\ -- it is a separate file."
+               "copy .env.template .env inside challenge\ -- it is a separate file."
 }
 
 Write-Head "Result"
