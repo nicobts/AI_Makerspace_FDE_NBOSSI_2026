@@ -6,6 +6,7 @@ split is the point: the API is the product, the UI is disposable.
 """
 
 import os
+import tomllib
 from pathlib import Path
 
 from fastapi.responses import HTMLResponse
@@ -16,6 +17,8 @@ from llm import stream_reply
 app = Server()
 
 FRONTEND = Path(__file__).parent / "frontend" / "index.html"
+_PYPROJECT = Path(__file__).parent / "pyproject.toml"
+VERSION = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8"))["project"]["version"]
 
 
 # --- The API -----------------------------------------------------------------
@@ -42,6 +45,11 @@ def homepage() -> str:
 def health() -> dict:
     """Your future ops team will thank you. Load balancers need this."""
     return {"status": "ok", "model": os.getenv("LLM_MODEL", "gpt-4.1-mini")}
+
+
+@app.get("/version")
+def version() -> dict:
+    return {"version": VERSION}
 
 
 if __name__ == "__main__":
