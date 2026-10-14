@@ -247,6 +247,10 @@ wants a field the schema does not have, that is a Step 5 change first.
 - Keep `llm.py` provider-agnostic. Anything vendor-specific belongs in config.
 - Do not add authentication, databases, or a frontend framework unless asked.
   Week 1 is deliberately small.
+- When a new Python module is imported by `app.py`, add it to the `COPY` line in
+  the `Dockerfile` in the same change, then rebuild and call the endpoint inside
+  the container. The Dockerfile copies files by name, so a module that works in
+  the virtual environment can be missing from the image.
 
 ---
 

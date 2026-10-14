@@ -11,7 +11,8 @@ Use roles, not names. This is a public repo.
 
 | Week | Who (role) | What you asked | What you learned | Follow-up |
 | --- | --- | --- | --- | --- |
-| 1 | <!-- e.g. Platform Engineering lead --> | <!-- where would a container run here? --> | <!-- --> | <!-- --> |
+| 1 | Customer IT department | Where a containerised internal app would run, how users log in, how it reaches a model | A single VM on GCP behind Identity-Aware Proxy; model calls go through an AI gateway; image built from the repo for the test phase | Ask about general egress, the review needed before real users, and how secrets reach the VM |
+| 1 | My CTO (supervises the development) | Who approves the deployment | I own the build; final approval is agreed with the customer | Confirm what the customer's approval consists of |
 
 ---
 

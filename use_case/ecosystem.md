@@ -18,26 +18,41 @@ put real hostnames, IPs, or architecture diagrams in this file.
 
 **Who did you ask?** (role, not name)
 
-<!-- your answer here -->
+The customer's IT department, which I am working with on the deployment, and my own CTO, who
+supervises the development. I own the build myself, so several answers below are decisions I am
+making, not ones I was handed.
 
 | # | Question | Answer |
 | :---: | --- | --- |
-| 1 | Where do internal apps run? (k8s, ECS, App Service, a VM someone maintains) | <!-- --> |
-| 2 | Which cloud? AWS, Azure, GCP, on-prem, several? | <!-- --> |
-| 3 | Is there an internal container registry? | <!-- --> |
-| 4 | How do users log in? (Okta, Entra ID, Ping, SAML, homegrown) | <!-- --> |
-| 5 | Can the app reach the internet? Egress proxy? Allowlist? | <!-- --> |
-| 6 | Where do secrets come from? (Vault, Secrets Manager, Key Vault) | <!-- --> |
-| 7 | Who approves a deployment, and what review does it need? | <!-- --> |
-| 8 | Is there an approved internal LLM endpoint already? | <!-- --> |
+| 1 | Where do internal apps run? (k8s, ECS, App Service, a VM someone maintains) | A single VM hosting the container and the rest of the services stack. It is the test deployment of a wider agent platform; this use case runs on top of it. Target: stack deployed by the end of this week. |
+| 2 | Which cloud? AWS, Azure, GCP, on-prem, several? | GCP, in the customer's own infrastructure. I deploy the whole solution for them. |
+| 3 | Is there an internal container registry? | Not used yet. Because this is a test, the image is built on the VM from the repository and is not pushed anywhere. |
+| 4 | How do users log in? (Okta, Entra ID, Ping, SAML, homegrown) | Google Cloud Identity-Aware Proxy in front of the stack, with a small OAuth proxy as the authentication layer, so users sign in with the customer's Google accounts. IAP controls the connection, which means the VM needs no public IP. The app itself implements no authentication. |
+| 5 | Can the app reach the internet? Egress proxy? Allowlist? | Yes for model APIs, but only through an AI gateway (Bifrost) that I am setting up for control, governance and tracing. The gateway is not publicly accessible; like the rest of the stack it is reachable only through IAP. Providers: OpenRouter only at first, for simplicity; most likely Vertex AI later. Whether general egress from the VM is open or allowlisted: unknown, to ask IT. |
+| 6 | Where do secrets come from? (Vault, Secrets Manager, Key Vault) | GitHub repository secrets. Planned: a simple CI pipeline that collects them and deploys them to the customer's GCP infrastructure. Not built yet. |
+| 7 | Who approves a deployment, and what review does it need? | I own the development, supervised by my CTO. Final approval has to be agreed with the customer. What review the customer requires before real users: unknown, to ask. |
+| 8 | Is there an approved internal LLM endpoint already? | Yes, but in my own company's infrastructure, not yet in the customer's. |
 
 **What surprised you?**
 
-<!-- your answer here -->
+There is no existing platform or process to deploy onto, so the path is mine to
+define. An approved model endpoint exists in my own company but not at the
+customer. There is no registry and no pipeline yet. Nobody could say what review
+the customer requires before real users. I expected constraints and was handed a
+blank page.
 
 **What would you have to change about your app to deploy there?**
 
-<!-- your answer here -->
+- Point the model at the AI gateway through `LLM_API_BASE` and the model name
+  (configuration only).
+- Take secrets from the planned CI pipeline, not a local `.env`; no
+  authentication in the app, the proxy in front handles login.
+- Run it as one service in the VM's compose stack behind the reverse proxy, with
+  `/health` as its health check.
+
+**The wider project.** This use case is one of 45 the customer wants to evaluate.
+The stack it runs alongside: an AI gateway, an agent-builder platform, a tracing
+service, a logging service and others.
 
 ---
 
@@ -48,10 +63,28 @@ put real hostnames, IPs, or architecture diagrams in this file.
   frequently disagrees with what people believe about their own network.
 -->
 
-<!-- probe output here -->
+### 2026-10-14, my development laptop
+
+| Host | Why | Status | Signed by |
+| --- | --- | --- | --- |
+| pypi.org | Python packages | OK | GlobalSign nv-sa |
+| files.pythonhosted.org | the actual wheel downloads | OK | GlobalSign nv-sa |
+| api.openai.com | the model API | OK | Google Trust Services |
+| cdn.jsdelivr.net | the CDN your app's frontend uses | OK | GlobalSign nv-sa |
+| huggingface.co | open weights and fine-tuning | OK | Amazon |
+| registry-1.docker.io | container images | OK | Amazon |
+| github.com | this repository | OK | Sectigo Limited |
+
+**Verdict:** Open network, public CAs, no proxy. Nothing here will bite you.
 
 **Does this match what you were told in the table above?** Where it doesn't, that
 gap is worth chasing — it usually means a proxy nobody documented.
+
+It cannot be compared yet. This probe ran on my own laptop, on an open network.
+The table above describes a VM in the customer's cloud that does not exist yet,
+with model calls going through a gateway and general egress still unknown. The
+useful comparison is this same probe run from that VM once it is up; I will add
+that as a second dated table here.
 
 ---
 

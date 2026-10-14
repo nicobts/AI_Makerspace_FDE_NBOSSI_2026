@@ -355,6 +355,9 @@ leave out.
 2. **The charter's In → Out row updated** if writing the types changed your
    mind about a field. It usually does; that is the step working.
 
+**My note on scope.** Week 1 takes pasted text; PDF upload is planned as a step in
+front of the same contract.
+
 ---
 
 ## 🔀 Step 6 — Decide whether it needs an agent
@@ -398,6 +401,35 @@ is cheaper to do it to yourself first.
    option you rejected, why, and what would change your mind.
 2. **The strongest counter-argument**, two or three sentences, in the same row
    or beneath it.
+
+**My verdict.** A pipeline of functions, not an agent, and not multi-agent from day
+one. The full row and the counter-argument are in
+[`use_case/decisions.md`](../../use_case/decisions.md).
+
+The end goal is the complete solution for the customer: sweep the sources, turn
+every document into an article card, rank and store the cards, produce a weekly
+report, and let researchers ask questions over the stored papers. Week 1 builds
+the one function all of that is made from: one document in, one card out.
+
+The original request describes five specialised agents (search, screening,
+comparison, translation, packaging). They run in a fixed sequence, so I treat
+them as five pipeline steps, each a model call with its own prompt, wired in an
+order written in advance. That gives a known cost per document, the same path on
+every run, and outputs I can score against the goldens.
+
+| Step in the request | What it is in this design | Decides its own next step? |
+| --- | --- | :---: |
+| Search the sources | Queries to fixed sources | Possibly |
+| Screen for reliability | The card's trust level and warnings | No |
+| Compare studies | One call over several cards | No |
+| Translate and adapt | The card's summaries per language | No |
+| Package the outputs | A report filled from the cards | No |
+
+Two places may later need a real agent, and both are named in the decision row
+as what would change my mind: search, if good results need the query rewritten
+depending on what came back; and conversational retrieval, if a question needs
+several lookups that cannot be planned in advance. Week 5 revisits this with
+evidence.
 
 ---
 
@@ -455,6 +487,16 @@ later, from generation seeded by these.
    the template.
 2. **One line in your README** saying which example is the edge case and which
    is the decline.
+
+**My goldens.** Example 4 (a pilot crossover study on green coffee that states no
+sample size) is the edge case; example 5 (a clinical trial on green tea extract) is
+the decline.
+
+The inputs are abstracts of published papers, retrieved from PubMed and quoted with
+their title and journal as test inputs only: Food Chemistry (2021), BMJ (2017),
+Molecular Biology Reports (2026), BioMed Research International (2014) and Clinical
+Nutrition (2016). The copyright stays with the publishers; I plan to replace the
+non-open-access ones with open-access papers in Week 2.
 
 ---
 
@@ -535,6 +577,42 @@ coming, and doing them now teaches the wrong lesson.
    box, or showing which model is answering, or handling errors visibly. Pick
    what matters for your use case, not all of them.
 
+**My answers.**
+
+1. *What is one thing you do at work this could take over?* The first read of a
+   research paper: deciding what it is, what it found, whether it matters and how
+   far to trust it, and writing that up in Italian for colleagues.
+2. *What exactly goes in?* Several fields. The text of one paper or abstract in
+   English is required. The title, the source, a focus question and the output
+   languages (English, Italian or both) are optional. No file upload yet.
+3. *What comes back, and who reads it?* A JSON article card matching `Response` in
+   `schema.py`: category, relevance from 1 to 3, study type, sample size, main
+   finding, a summary and notes per requested language, and a trust level with
+   warnings. Or `needs_human = true` with a reason and no card. An R&D researcher
+   reads it on the page; later the weekly report and the paper store read the
+   same JSON.
+4. *What did you name it, and why would an agent pick it correctly?*
+   `summarize_research_paper(document_text, title, source, focus, output_languages)`.
+   The verb says what happens, the noun says what kind of thing it wants, and the
+   docstring says it handles one document at a time and does not search, so an
+   agent would not pick it to find papers.
+
+The page shows which model is answering, has a form for the endpoint and renders
+the card as a sheet: relevance, trust level with warnings, and the English and
+Italian summaries side by side. The interface itself switches between English and
+Italian and between a light and a dark theme, and remembers both choices. A "Load an
+example" button fills the form with an open-access abstract, a help panel opens on
+the first visit and from the question mark in the header, and an animation with a
+running clock shows while a card is being created. It shows a visible error when the
+call or the CDN fails. The company name in the header is a placeholder, not the
+customer's.
+
+I removed the starter app's free chat, both the box on the page and the `/chat`
+endpoint in `app.py`: it is outside the scope of this use case and an open chat is
+an easy way to spend tokens. `summarize_research_paper` is now the only endpoint.
+The first pass of the vibe check below was run through `/chat` before it was
+removed.
+
 ---
 
 ## Step 9 — Containerize it
@@ -608,6 +686,29 @@ Hold the thought — Step 10 is about to make it concrete.
 3. **One or two sentences** on what a container image captures that a virtual
    environment does not — and why that difference is what makes the image the
    thing you hand to a platform team.
+
+**My answers.**
+
+The app runs in a container on my machine (image 791 MB, running as `appuser`), and
+all five goldens were sent through the endpoint inside it. The first run crashed
+with `ModuleNotFoundError: No module named 'schema'`: the Dockerfile copies files
+by name and my new `schema.py` was not on the list. It worked in the virtual
+environment and failed in the image, which is the point of this step.
+
+*The CDN dependency.* `frontend/index.html` imports `@gradio/client` from
+`cdn.jsdelivr.net` at runtime. On a network that blocks that host, the page loads
+and the forms do nothing; my page now shows an error in that case instead of
+failing silently. Where I deploy, users reach the app through an identity-aware
+proxy and their browsers fetch the script, so it depends on the browsers' network,
+not the VM's. The fix is to download the client at build time, copy it into the
+image and serve it from the app itself, so the only runtime dependency left is the
+model gateway.
+
+*Image versus virtual environment.* A virtual environment captures Python packages
+only. An image also captures the operating system, the Python version, the files
+that were actually copied in, the user it runs as and the start command. That is
+why the image is what you hand to a platform team: they can run it without knowing
+anything about how my laptop is set up.
 
 ---
 
@@ -752,31 +853,66 @@ Fill these in directly in this README, and commit it.
 
 **Who did you ask?** (role, not name)
 
-<!-- Your answer here -->
+The customer's IT department, which I am working with on the deployment, and my own CTO, who
+supervises the development. I own the build, so several of these answers are decisions I am
+making, not ones I was handed.
 
 **Where would this application run?**
 
-<!-- Your answer here -->
+On a single VM that hosts the container and the rest of the services stack. It is the test
+deployment of a wider agent platform, and this use case runs on top of it. The image is built on
+the VM from the repository; there is no registry yet. Target: stack deployed by the end of this
+week.
 
 **Which cloud provider, if any?**
 
-<!-- Your answer here -->
+GCP, in the customer's own infrastructure.
 
 **How would users authenticate?**
 
-<!-- Your answer here -->
+Google Cloud Identity-Aware Proxy in front of the stack, with a small OAuth proxy as the
+authentication layer, so users sign in with the customer's Google accounts. IAP controls the
+connection, so the VM needs no public IP. The app itself implements no authentication.
 
 **Could this container reach an external LLM API? If not, what would it use instead?**
 
-<!-- Your answer here -->
+Yes, but only through an AI gateway (Bifrost) that I am setting up for control, governance and
+tracing. The gateway is not publicly accessible. Providers: OpenRouter at first, most likely
+Vertex AI later. Whether general egress from the VM is open or allowlisted is unknown; I still
+have to ask IT.
 
 **What surprised you in this conversation?**
 
-<!-- Your answer here -->
+Four things, and they are really one. There is no existing platform or process to
+deploy onto, so the deployment path is mine to define: where it runs, how users
+log in and how secrets arrive. An approved model endpoint exists in my own
+company but not at the customer, so the gateway has to be in place before
+anything can run there. There is no registry and no pipeline yet; for the test
+phase the image is built on the VM from the repository. And nobody could tell me
+what review the customer requires before real users touch it. I expected to be
+handed constraints; I was handed a blank page, which is more freedom and more
+risk.
 
 **What would you have to change about this app to make it deployable there?**
 
-<!-- Your answer here -->
+- **Point the model at the gateway.** Set `LLM_API_BASE` and the model name to the
+  AI gateway. This is a configuration change, not a code change, because
+  `llm.py` reads both from the environment.
+- **Take secrets from the pipeline, not from `.env`.** Replace the local
+  `--env-file` with secrets delivered by the planned CI pipeline. The app stays
+  free of authentication, because the proxy in front handles login.
+- **Run it with the stack.** Add the app as one service in the VM's compose stack
+  behind the reverse proxy, with `/health` as its health check.
+
+**The wider project this sits in.** This use case is one part of a larger
+engagement: enabling the customer to use and test AI models and agents across
+many use cases. The customer shared 45 use cases they would like to evaluate.
+To support that, we composed a stack of components that this application will
+run alongside: an AI gateway, an agent-builder platform, a tracing service, a
+logging service and others. The research digest is the use case I am carrying
+through this course, and what I learn building it here feeds the rest. Feedback
+on the approach, from anyone who has rolled out a platform like this, is very
+welcome.
 
 Then log the answers in [`use_case/ecosystem.md`](../../use_case/ecosystem.md)
 and the person you asked in
@@ -855,45 +991,61 @@ demo.
 Run each prompt through your app. Name the capability it tests.
 
 **1.** *Explain object-oriented programming in simple terms to a complete beginner.*
-**Aspect tested:** <!-- your answer --> **Response:** <!-- your answer -->
+**Aspect tested:** tone and audience fit. **Response:** A blueprint-and-car analogy for class and object, then a `Dog` example. Right level for a beginner, but it used Markdown headings and code blocks, which my plain-text chat box shows as raw symbols.
 
 **2.** *Read a paragraph of your choosing and summarize the key points.*
-**Aspect tested:** <!-- your answer --> **Response:** <!-- your answer -->
+**Aspect tested:** factual grounding. **Response:** Given the roasting abstract from golden 1, it kept objective, method and all three findings (130 words). It added "Maillard reaction products" as the explanation, which the abstract does not say: a small invention inside an otherwise faithful summary.
 
 **3.** *Write a short, imaginative story (100–150 words) about a robot finding friendship in an unexpected place.*
-**Aspect tested:** <!-- your answer --> **Response:** <!-- your answer -->
+**Aspect tested:** instruction-following (the length limit). **Response:** A garden robot and a crow exchanging objects. 151 words by a whitespace count, title included, so it sits on the limit or one word over.
 
 **4.** *If a store sells apples in packs of 4 and oranges in packs of 3, how many packs of each do I need to get exactly 12 apples and 9 oranges?*
-**Aspect tested:** <!-- your answer --> **Response:** <!-- your answer -->
+**Aspect tested:** reasoning. **Response:** "3 packs of apples (3 × 4 = 12) and 3 packs of oranges (3 × 3 = 9)." Correct, with the working shown, in 1.8 seconds.
 
 **5.** *Rewrite a paragraph of your choosing in a professional, formal tone.*
-**Aspect tested:** <!-- your answer --> **Response:** <!-- your answer -->
+**Aspect tested:** tone, without changing the content. **Response:** My casual note about a roasting trial came back formal, but it added "This finding appears promising and warrants further discussion", which I did not say. Tone right, content slightly inflated.
 
 **❓ Are the answers correct and useful?**
-<!-- your answer -->
+Correct on reasoning and on the main content every time. The pattern to watch is small additions: an explanation the source did not give (2) and a judgement I did not make (5). For a tool whose job is to report what a paper says, that is exactly the failure that matters.
 
 ### Pass 2 — Your actual use case
 
 Test it with prompts from the problem you care about — your five golden
 examples from Step 7 are the obvious first three.
 
-**Prompt:** <!-- --> **Result:** <!-- -->
-**Prompt:** <!-- --> **Result:** <!-- -->
-**Prompt:** <!-- --> **Result:** <!-- -->
+All five goldens were sent through `summarize_research_paper`, once locally and once in the container.
+
+**Prompt:** golden 1, lab study on acrylamide during roasting. **Aspect tested:** format adherence and grounding. **Result:** Valid card both times; category, study type, trust level and the null sample size matched. Relevance came back 2 where I wrote 3. The Italian summary was about three times longer than the one I would accept.
+
+**Prompt:** golden 4, pilot crossover study with no sample size stated (the edge case). **Aspect tested:** handling of missing information. **Result:** It left `sample_size` null and did not invent a number. But the trust level was "low" on the first run and "medium" on the second, and the first run added a `methods_not_described` warning I did not expect.
+
+**Prompt:** golden 5, clinical trial on green tea extract (the decline). **Aspect tested:** refusal behaviour. **Result:** `needs_human = true` both times, no card, with the reason "about green tea extract, not about coffee". Fastest call of the five (3 to 5 seconds).
+
+Also seen: on golden 2 it left `sample_size` null where I had counted 218 meta-analyses, and on golden 3 it rated a narrative review "high" on one run and "medium" on the other.
 
 **❓ Does it behave the way you expected? Why or why not?**
-<!-- your answer -->
+Partly. The structure held every time and the decline worked, which I expected least. What did not hold is judgement: relevance and trust level moved between runs and against my labels. Either my prompt does not define the levels well enough, or my goldens encode rules I never wrote down (for example "a review is at most medium"). Both are my work to fix, not the model's.
 
 ### Pass 3 — Where it falls down
 
 Try things it cannot do yet — real-time data, memory across sessions, access to
 your systems.
 
-**Prompt:** <!-- --> **Result:** <!-- -->
-**Prompt:** <!-- --> **Result:** <!-- -->
+**Prompt:** *Which coffee research papers were published this week?* **Aspect tested:** handling of missing information. **Result:** It said it has no access to current publications and listed places to look (Google Scholar, PubMed, journals). Honest, and useless for the actual need.
+
+**Prompt:** *What was the last paper I asked you to summarise yesterday?* **Aspect tested:** memory across sessions. **Result:** It said it keeps no memory between conversations and asked me to paste the paper again.
 
 **❓ What are the real limitations of this application?**
-<!-- your answer -->
+
+- It cannot find papers. Someone has to paste the text; there is no search and no PDF upload.
+- It sees an abstract, not the paper, so trust is judged on what the abstract happens to mention.
+- Nothing is stored: no history of cards, no weekly report, no questions over past papers.
+- Relevance is judged without knowing the team's current projects.
+- Relevance and trust level are not stable between two runs on the same input.
+- It adds small unsupported details in free text.
+- Each card takes 10 to 15 seconds.
+
+**What a vibe check is worth as evidence.** It tells me whether to continue, not how good the system is: I read each answer once and judged it by eye, and two runs of the same input disagreed on the trust level. Before I could compare two versions of the application I would need a fixed set of inputs with expected field values and a score per field over several runs, which is what the goldens and the Week 4 harness are for.
 
 ### ✅ Deliverables
 
@@ -953,6 +1105,13 @@ most valuable thing you will learn this week.
    reject, and what did you change as a result — one line in
    `use_case/decisions.md` or a rewritten example.
 
+**Status: not done yet.** I have not shown the application to a user, so there are
+no answers to report and I am not going to invent them. A first in-person meeting
+with the R&D team is booked; I will run the demo and the three questions there or in
+a follow-up session, show them the five goldens, and add the row to
+`use_case/stakeholders.md`, the line to `use_case/decisions.md` and the three
+answers here.
+
 ---
 
 ## 📤 Step 13 — Share: bring it to work
@@ -1005,6 +1164,55 @@ build against it — measuring it afterwards is a different, weaker thing.
    heading is a list of exactly what it would take to run each piece at work.
 4. **Your repo link posted in [our community on Maven](https://bit.ly/fde1-maven-community)**,
    and comments on at least two other students' submissions after the deadline.
+
+---
+
+## Bring it to work
+
+**The napkin math.** One call is one paper turned into one card.
+
+| Number | Value | Source |
+| --- | --- | --- |
+| Tokens in | 1,694 to 2,249 | **measured**, goldens 1 and 2 |
+| Tokens out | 1,170 to 1,187 | **measured**, same two calls |
+| Price | $2 per 1M in, $10 per 1M out | **looked up**, provider's price list for the model in my `.env` |
+| Minutes per manual pass | 30 to 60, midpoint 45 | **estimate**, not timed; to be measured with the R&D team |
+| Loaded hourly rate | $40 | **assumption**, to be replaced with the real figure |
+| Calls per day | 2 | **assumption**: about 10 papers per request, about 4 requests a month |
+
+```
+cost per call   = 2,249 / 1e6 × $2  +  1,187 / 1e6 × $10   = $0.016
+model per year  = $0.016 × 2 × 250                         = $8
+human per year  = 45 / 60 × $40 × 2 × 250                  = $15,000
+ratio           = $15,000 / $8                             ≈ 1,900×
+```
+
+Comfortable, and the ratio does not depend on the volume, because calls per day
+appears on both sides. Two honest corrections: the researcher still reads the
+papers the card marks as worth it, so the real saving is the reading that is
+avoided, not all of it; and three of the six inputs are not measured yet. No
+expected cost from a user to compare with, because the Step 12 demo has not
+happened.
+
+**p95 latency target:** 30 seconds per paper. Measured so far: 9 to 15 seconds for
+a card, 3 to 5 for a decline, over ten calls. The manual pass takes 30 to 60
+minutes and the planned sweep runs in the background, so neither cost nor latency
+is likely to stop this being used. Of the two, latency is the bigger risk, and only
+for someone pasting papers one at a time. What would actually stop it is a card
+that cannot be trusted.
+
+**What I would swap.**
+
+- **Data:** the five goldens are public abstracts from PubMed. They stand in for
+  the full papers the R&D team actually reads, including paid articles and PDFs
+  saved in shared folders.
+- **Model or endpoint:** calls would go through the AI gateway from Step 10, first
+  to the same provider and later most likely to a cloud provider's hosted models.
+  The price per token may change with that move; the gateway adds tracing and
+  control.
+- **Access or approval:** final approval is agreed with the customer. I still need
+  to ask what review they require before real users, and whether the text of paid
+  articles may be sent to an external model.
 
 ---
 

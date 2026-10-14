@@ -33,5 +33,13 @@ scripts/.summeval.parquet
 # (and friends) somewhere no import will ever find, reading as maintained code.
 Claude outputs/
 
-# Personal prerequisites tracker -- local for now
+# Personal trackers -- local for now
 nb_status.md
+tc1_status.md
+
+# Source material for the use case. Internal company documents: this repo is
+# public, so nothing in here is ever committed.
+use_case/reference/
+
+# Personal study notes -- explanations kept for re-reading, never published
+understand_explain/

@@ -3,94 +3,781 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Rename this. It is your app. -->
-    <title>Your AI Application</title>
+    <title>Research digest | Coffee Comp Ltd</title>
     <style>
+      /* Palette taken from unroasted green coffee, with a dark roast for actions. */
+      :root {
+        --bg: #edf0ea;
+        --surface: #ffffff;
+        --ink: #1c2320;
+        --muted: #5c665f;
+        --line: #cfd6cb;
+        --sage: #5e7153;
+        --sage-soft: #dfe6d9;
+        --roast: #6b3a1e;
+        --on-roast: #ffffff;
+        --good: #3f6b3a;
+        --mid: #9a6a12;
+        --bad: #a3271f;
+        --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+        --sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+      }
+      :root[data-theme="dark"] {
+        --bg: #131714;
+        --surface: #1c221e;
+        --ink: #e5eae3;
+        --muted: #9aa69c;
+        --line: #333c35;
+        --sage: #9bb38e;
+        --sage-soft: #263026;
+        --roast: #c99a6b;
+        --on-roast: #1a1410;
+        --good: #8fc487;
+        --mid: #e0b45c;
+        --bad: #f08b82;
+      }
+
+      * { box-sizing: border-box; }
       body {
-        font-family: system-ui, sans-serif;
-        max-width: 44rem;
-        margin: 2rem auto;
-        padding: 0 1rem;
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        font-family: var(--sans);
         line-height: 1.5;
+        color: var(--ink);
+        background: var(--bg);
       }
-      #log {
-        border: 1px solid #ccc;
-        border-radius: 6px;
-        padding: 1rem;
-        min-height: 20rem;
-        margin-bottom: 1rem;
-        white-space: pre-wrap;
-        overflow-y: auto;
+      a { color: inherit; }
+      :focus-visible { outline: 2px solid var(--roast); outline-offset: 2px; }
+      .wrap { width: min(72rem, 100% - 2.5rem); margin-inline: auto; }
+
+      /* --- Header --- */
+      .top { border-bottom: 1px solid var(--line); background: var(--surface); }
+      .top .wrap { display: flex; align-items: center; gap: 1rem; padding-block: 0.75rem; }
+      .brand { display: flex; align-items: center; gap: 0.6rem; margin-right: auto; }
+      .brand svg { width: 1.9rem; height: 1.9rem; color: var(--roast); --crease: var(--surface); }
+      .brand-name { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; letter-spacing: 0.01em; }
+      .brand-unit { color: var(--muted); font-size: 0.9rem; }
+      .switch { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+      .switch button {
+        padding: 0.3rem 0.8rem;
+        font: inherit;
+        font-size: 0.9rem;
+        color: var(--muted);
+        background: transparent;
+        border: 0;
+        cursor: pointer;
       }
-      .turn { margin-bottom: 1rem; }
-      .who { font-weight: 600; }
-      form { display: flex; gap: 0.5rem; }
-      input { flex: 1; padding: 0.5rem; font: inherit; }
-      button { padding: 0.5rem 1rem; font: inherit; }
+      .switch button[aria-pressed="true"] { color: var(--on-roast); background: var(--roast); }
+      .icon-btn {
+        display: inline-grid;
+        place-items: center;
+        width: 2.2rem;
+        height: 2.2rem;
+        color: var(--ink);
+        background: transparent;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        cursor: pointer;
+      }
+      .icon-btn svg { width: 1.1rem; height: 1.1rem; }
+      :root[data-theme="dark"] .when-light, :root:not([data-theme="dark"]) .when-dark { display: none; }
+
+      /* --- Intro --- */
+      .intro { padding-block: 2.5rem 1.5rem; }
+      h1 {
+        margin: 0;
+        font-family: var(--serif);
+        font-size: clamp(1.7rem, 1rem + 2.4vw, 2.75rem);
+        font-weight: 500;
+        line-height: 1.08;
+        letter-spacing: -0.01em;
+      }
+      .lede { max-width: 60ch; margin: 0.9rem 0 0; color: var(--muted); font-size: 1.05rem; }
+      .lede strong { color: var(--ink); font-weight: 600; }
+
+      /* --- Workbench: form left, sheet right --- */
+      .bench { display: grid; gap: 1.5rem; padding-bottom: 3rem; align-items: start; }
+      @media (min-width: 60rem) { .bench { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); } }
+      .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 1.25rem; }
+      label, .label { display: block; margin: 0.9rem 0 0.3rem; font-weight: 600; font-size: 0.95rem; }
+      .panel > form > label:first-child { margin-top: 0; }
+      .optional { color: var(--muted); font-weight: 400; }
+      textarea, input[type="text"] {
+        width: 100%;
+        padding: 0.55rem 0.65rem;
+        font: inherit;
+        color: var(--ink);
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 3px;
+      }
+      /* Grows with its content (see fitText); only a very long paper scrolls. */
+      textarea { min-height: 18rem; max-height: 90rem; resize: none; overflow-y: auto; line-height: 1.55; }
+      .count { color: var(--muted); font-size: 0.85rem; text-align: right; }
+      .two { display: grid; gap: 0 0.9rem; }
+      @media (min-width: 34rem) { .two { grid-template-columns: 1fr 1fr; } }
+      .checks { display: flex; gap: 1.25rem; }
+      .checks label { display: inline-flex; align-items: center; gap: 0.4rem; margin: 0; font-weight: 400; }
+      .checks input { accent-color: var(--roast); width: 1rem; height: 1rem; }
+      .actions { display: flex; align-items: center; gap: 0.9rem; margin-top: 1.25rem; flex-wrap: wrap; }
+      .primary {
+        padding: 0.6rem 1.3rem;
+        font: inherit;
+        font-weight: 600;
+        color: var(--on-roast);
+        background: var(--roast);
+        border: 0;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+      .primary:disabled { opacity: 0.55; cursor: progress; }
+      .plain {
+        padding: 0.35rem 0.8rem;
+        font: inherit;
+        font-size: 0.9rem;
+        color: var(--ink);
+        background: transparent;
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        cursor: pointer;
+      }
+      #status { color: var(--muted); font-size: 0.95rem; }
+      #status.error { color: var(--bad); font-weight: 600; }
+
+      /* --- The specimen sheet --- */
+      .sheet { border-top: 4px solid var(--sage); min-height: 16rem; scroll-margin-top: 1rem; }
+      .empty { color: var(--muted); max-width: 44ch; }
+      .empty p { margin: 0 0 0.5rem; }
+      .sheet-head { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; align-items: baseline; }
+      .category { font-family: var(--serif); font-size: 1.6rem; font-weight: 500; text-transform: capitalize; margin-right: auto; }
+      .finding { margin: 0.6rem 0 0; font-family: var(--serif); font-size: 1.2rem; line-height: 1.4; }
+      .meters { display: grid; gap: 0.9rem 1.5rem; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); margin: 1.1rem 0; padding: 0.9rem 0; border-block: 1px solid var(--line); }
+      .meter-name { color: var(--muted); font-size: 0.85rem; }
+      .meter-value { font-weight: 600; }
+      .beans { display: flex; gap: 0.15rem; margin-top: 0.2rem; }
+      .beans svg { width: 1.35rem; height: 1.35rem; color: var(--line); --crease: var(--surface); }
+      .beans svg.on { color: var(--roast); }
+      .trust-high { color: var(--good); }
+      .trust-medium { color: var(--mid); }
+      .trust-low { color: var(--bad); }
+      .warnings { list-style: none; display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.3rem 0 0; padding: 0; }
+      .warnings li { padding: 0.05rem 0.55rem; font-size: 0.85rem; color: var(--bad); border: 1px solid currentColor; border-radius: 3px; }
+      .langs-out { display: grid; gap: 1.25rem; }
+      @media (min-width: 40rem) { .langs-out.both { grid-template-columns: 1fr 1fr; } }
+      .lang-col h3 { margin: 0 0 0.35rem; font-size: 0.95rem; color: var(--sage); }
+      .lang-col p { margin: 0 0 0.7rem; }
+      .note { padding-left: 0.75rem; border-left: 2px solid var(--sage-soft); color: var(--muted); }
+      .decline { border-left: 4px solid var(--bad); padding-left: 1rem; }
+      .decline h2 { margin: 0 0 0.3rem; font-family: var(--serif); font-size: 1.4rem; font-weight: 500; }
+      .decline p { margin: 0; }
+      .sheet-foot { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-top: 1.1rem; color: var(--muted); font-size: 0.9rem; }
+      .sheet-foot .took { margin-right: auto; }
+      details pre {
+        margin: 0.6rem 0 0;
+        padding: 0.75rem;
+        overflow: auto;
+        max-height: 20rem;
+        font-size: 0.82rem;
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 3px;
+      }
+      summary { cursor: pointer; }
+
+      /* --- Help popover --- */
+      .top .wrap { position: relative; }
+      .help {
+        position: absolute;
+        top: calc(100% + 0.5rem);
+        right: 0;
+        z-index: 10;
+        width: min(27rem, 100%);
+        padding: 1.1rem 1.25rem;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-top: 4px solid var(--roast);
+        border-radius: 4px;
+        box-shadow: 0 12px 30px rgb(0 0 0 / 0.18);
+      }
+      .help[hidden] { display: none; }
+      .help h2 { margin: 0 0 0.5rem; font-family: var(--serif); font-size: 1.25rem; font-weight: 500; }
+      .help ol { margin: 0 0 0.75rem; padding-left: 1.2rem; }
+      .help li { margin-bottom: 0.3rem; }
+      .help p { margin: 0 0 0.75rem; color: var(--muted); font-size: 0.93rem; }
+      .icon-btn[aria-expanded="true"] { color: var(--on-roast); background: var(--roast); border-color: var(--roast); }
+      .icon-btn.text { font-family: var(--serif); font-size: 1.1rem; font-weight: 700; }
+
+      /* --- Loader: three beans taking on colour, as in a roast --- */
+      .loader { display: grid; justify-items: center; gap: 0.9rem; padding: 3rem 1rem; text-align: center; }
+      .loader .beans svg { width: 2.6rem; height: 2.6rem; color: var(--sage); }
+      .loader-text { font-family: var(--serif); font-size: 1.2rem; }
+      .loader-time { color: var(--muted); font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+      @media (prefers-reduced-motion: no-preference) {
+        .loader .beans svg { animation: roast 1.8s ease-in-out infinite; }
+        .loader .beans svg:nth-child(2) { animation-delay: 0.3s; }
+        .loader .beans svg:nth-child(3) { animation-delay: 0.6s; }
+        @keyframes roast {
+          0%, 100% { color: var(--sage); transform: rotate(0deg) translateY(0); }
+          50% { color: var(--roast); transform: rotate(18deg) translateY(-5px); }
+        }
+      }
+
+      /* --- Footer --- */
+      footer { margin-top: auto; border-top: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: 0.9rem; }
+      footer .wrap { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; align-items: center; padding-block: 1rem; }
+      footer .rights { margin-right: auto; }
+      .gh { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--ink); text-decoration: none; font-weight: 600; }
+      .gh:hover { text-decoration: underline; }
+      .gh svg { width: 1.15rem; height: 1.15rem; }
+
+      /* One orchestrated moment: a new card's parts arrive in order, then the
+         relevance beans fill. Redrawing in the other language does not replay it. */
+      @media (prefers-reduced-motion: no-preference) {
+        .reveal > * { animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 80ms); }
+        .reveal .beans svg.on { animation: fill 0.45s cubic-bezier(0.3, 1.5, 0.5, 1) both; animation-delay: calc(350ms + var(--n, 0) * 140ms); }
+        .help:not([hidden]) { animation: unfold 0.22s ease-out; transform-origin: top right; }
+        @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+        @keyframes fill { from { color: var(--line); transform: scale(0.6) rotate(-25deg); } }
+        @keyframes unfold { from { opacity: 0; transform: translateY(-6px) scale(0.97); } }
+      }
     </style>
   </head>
   <body>
-    <h1>Your AI Application</h1>
-    <p>
-      This is a deliberately plain frontend. Making it good is your job — open
-      this file in VS Code and point Claude Code at it.
-    </p>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="bean" viewBox="0 0 24 24">
+        <ellipse cx="12" cy="12" rx="7.2" ry="10.2" transform="rotate(32 12 12)" fill="currentColor" />
+        <path d="M17.2 4.6c-5.6 2.2-.4 9.600-10.4 14.800" fill="none" stroke="var(--crease)" stroke-width="1.5" stroke-linecap="round" />
+      </symbol>
+    </svg>
 
-    <div id="log"></div>
-    <form id="form">
-      <input id="input" placeholder="Ask something..." autocomplete="off" />
-      <button type="submit">Send</button>
-    </form>
+    <header class="top">
+      <div class="wrap">
+        <div class="brand">
+          <svg aria-hidden="true"><use href="#bean" /></svg>
+          <div>
+            <div class="brand-name">Coffee Comp Ltd</div>
+            <div class="brand-unit" data-i18n="unit"></div>
+          </div>
+        </div>
+        <div class="switch" role="group" data-i18n-label="uiLanguage">
+          <button type="button" data-lang="en" aria-pressed="true">EN</button>
+          <button type="button" data-lang="it" aria-pressed="false">IT</button>
+        </div>
+        <button type="button" class="icon-btn text" id="help-btn" aria-expanded="false" aria-controls="help" data-i18n-label="helpOpen">?</button>
+        <button type="button" class="icon-btn" id="theme" data-i18n-label="theme">
+          <svg class="when-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+            <path d="M20 14.5A8 8 0 0 1 9.500 4a8 8 0 1 0 10.500 10.500z" />
+          </svg>
+          <svg class="when-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.900 4.900l1.400 1.400M17.700 17.700l1.400 1.400M4.900 19.100l1.400-1.400M17.700 6.300l1.400-1.400" />
+          </svg>
+        </button>
+        <div class="help" id="help" role="dialog" aria-labelledby="help-title" hidden>
+          <h2 id="help-title" data-i18n="helpTitle"></h2>
+          <ol>
+            <li data-i18n="help1"></li>
+            <li data-i18n="help2"></li>
+            <li data-i18n="help3"></li>
+          </ol>
+          <p data-i18n="helpRead"></p>
+          <p data-i18n="helpPrivacy"></p>
+          <button type="button" class="plain" id="help-close" data-i18n="helpClose"></button>
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <section class="intro">
+        <h1 data-i18n="headline"></h1>
+        <p class="lede">
+          <span data-i18n="lede"></span>
+          <span data-i18n="answering"></span> <strong id="model">…</strong>
+        </p>
+      </section>
+
+      <section class="bench">
+        <div class="panel">
+          <form id="card-form">
+            <label for="text" data-i18n="textLabel"></label>
+            <textarea id="text" required data-i18n-placeholder="textPlaceholder"></textarea>
+            <div class="count" id="count"></div>
+            <div class="two">
+              <div>
+                <label for="title"><span data-i18n="titleLabel"></span> <span class="optional" data-i18n="optional"></span></label>
+                <input type="text" id="title" />
+              </div>
+              <div>
+                <label for="source"><span data-i18n="sourceLabel"></span> <span class="optional" data-i18n="optional"></span></label>
+                <input type="text" id="source" data-i18n-placeholder="sourcePlaceholder" />
+              </div>
+            </div>
+            <label for="focus"><span data-i18n="focusLabel"></span> <span class="optional" data-i18n="optional"></span></label>
+            <input type="text" id="focus" data-i18n-placeholder="focusPlaceholder" />
+            <div class="label" data-i18n="languagesLabel"></div>
+            <div class="checks" id="out-langs">
+              <label><input type="checkbox" value="en" checked /> English</label>
+              <label><input type="checkbox" value="it" checked /> Italiano</label>
+            </div>
+            <div class="actions">
+              <button type="submit" class="primary" id="go" data-i18n="create"></button>
+              <button type="button" class="plain" id="example" data-i18n="example"></button>
+              <button type="button" class="plain" id="clear" data-i18n="clear"></button>
+              <span id="status" role="status"></span>
+            </div>
+          </form>
+        </div>
+
+        <div class="panel sheet" id="sheet" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span class="rights">© 2026 Coffee Comp Ltd. <span data-i18n="rights"></span></span>
+        <a class="gh" href="https://github.com/nicobts/AI_Makerspace_FDE_NBOSSI_2026" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 .297c-6.630 0-12 5.373-12 12 0 5.303 3.438 9.800 8.205 11.385.600.113.820-.258.820-.577 0-.285-.010-1.040-.015-2.040-3.338.724-4.042-1.610-4.042-1.610C4.422 18.070 3.633 17.700 3.633 17.700c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.070 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.760-1.605-2.665-.300-5.466-1.332-5.466-5.930 0-1.310.465-2.380 1.235-3.220-.135-.303-.540-1.523.105-3.176 0 0 1.005-.322 3.300 1.230.960-.267 1.980-.399 3-.405 1.020.006 2.040.138 3 .405 2.280-1.552 3.285-1.230 3.285-1.230.645 1.653.240 2.873.120 3.176.765.840 1.230 1.910 1.230 3.220 0 4.610-2.805 5.625-5.475 5.920.420.360.810 1.096.810 2.220 0 1.606-.015 2.896-.015 3.286 0 .315.210.690.825.570C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+          </svg>
+          nicobts
+        </a>
+      </div>
+    </footer>
 
     <script type="module">
-      // NOTE: this loads the Gradio client from a public CDN. On a locked-down
-      // corporate network that request may simply fail. Worth noticing now --
-      // it is the kind of thing that turns a working demo into a broken one the
-      // moment it moves inside the firewall.
-      import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
+      // --- Interface language and theme --------------------------------------
+      // Storage can be blocked (private windows, managed browsers), so every
+      // access is guarded and the page works without it.
+      const store = {
+        get(key) { try { return localStorage.getItem(key); } catch { return null; } },
+        set(key, value) { try { localStorage.setItem(key, value); } catch { /* preference not kept */ } },
+      };
 
-      const client = await Client.connect(window.location.origin);
-      const log = document.getElementById("log");
-      const form = document.getElementById("form");
-      const input = document.getElementById("input");
+      const TEXT = {
+        en: {
+          unit: "Research and Development",
+          uiLanguage: "Interface language",
+          theme: "Switch between light and dark",
+          headline: "One paper in, one article card out.",
+          lede: "Paste the text of a coffee research paper. You get what it found, how relevant it is and how far to trust it, in English and Italian.",
+          answering: "Answering with",
+          textLabel: "Paper or abstract text, in English",
+          textPlaceholder: "Paste the text here",
+          titleLabel: "Title",
+          sourceLabel: "Source",
+          sourcePlaceholder: "Journal, site or preprint server",
+          focusLabel: "What are you trying to decide?",
+          focusPlaceholder: "For example: should we change our light roast profile?",
+          optional: "(optional)",
+          languagesLabel: "Write the summary in",
+          create: "Create article card",
+          clear: "Clear",
+          chars: "characters",
+          reading: "Reading the paper…",
+          pickLanguage: "Pick at least one summary language.",
+          noClient: "The page could not load its client library from the CDN. Check the network, then reload.",
+          failed: "The request failed:",
+          emptyTitle: "No card yet.",
+          emptyBody: "Paste a paper on the left and create a card. A weak study still gets a card, with its warnings. A text that is not a coffee study gets sent to a researcher instead.",
+          relevance: "Relevance",
+          relevanceText: ["", "Background", "Worth reading", "Act on it"],
+          trust: "Trust",
+          trustText: { high: "High", medium: "Medium", low: "Low" },
+          study: "Study type",
+          sample: "Sample size",
+          notStated: "Not stated in the text",
+          warnings: {
+            not_peer_reviewed: "Not peer reviewed",
+            small_sample: "Small sample",
+            methods_not_described: "Methods not described",
+            no_controls: "No controls",
+          },
+          summaryOf: { en: "English", it: "Italiano" },
+          declineTitle: "No card. A researcher should read this.",
+          noReason: "No reason was given.",
+          took: (s) => `Read in ${s} seconds`,
+          copy: "Copy JSON",
+          copied: "Copied",
+          raw: "Show the raw JSON",
+          example: "Load an example",
+          elapsed: (s) => `${s} seconds so far. A paper usually takes 10 to 15.`,
+          helpOpen: "How this page works",
+          helpTitle: "How this page works",
+          help1: "Paste the text of one coffee research paper or abstract, in English. Or load the example.",
+          help2: "Add the title, the source and what you are trying to decide, if you know them. They sharpen the relevance score.",
+          help3: "Create the card. You get the main finding, a relevance score, a trust level with its warnings, and a summary in English and Italian.",
+          helpRead: "Relevance runs from one bean (background) to three (act on it). A weak study still gets a card, marked low trust. A text that is not a coffee study gets no card and is sent to a researcher.",
+          helpPrivacy: "The text you paste is sent to an external AI model. Do not paste confidential documents. The card is a first read, not a replacement for reading the paper.",
+          helpClose: "Got it",
+          rights: "All rights reserved.",
+        },
+        it: {
+          unit: "Ricerca e Sviluppo",
+          uiLanguage: "Lingua dell'interfaccia",
+          theme: "Passa da chiaro a scuro",
+          headline: "Un articolo in ingresso, una scheda in uscita.",
+          lede: "Incolla il testo di un articolo scientifico sul caffè. Ottieni cosa ha trovato, quanto è rilevante e quanto è affidabile, in inglese e in italiano.",
+          answering: "Risponde",
+          textLabel: "Testo dell'articolo o dell'abstract, in inglese",
+          textPlaceholder: "Incolla qui il testo",
+          titleLabel: "Titolo",
+          sourceLabel: "Fonte",
+          sourcePlaceholder: "Rivista, sito o server di preprint",
+          focusLabel: "Che cosa devi decidere?",
+          focusPlaceholder: "Per esempio: dobbiamo cambiare il profilo di tostatura chiara?",
+          optional: "(facoltativo)",
+          languagesLabel: "Scrivi il riassunto in",
+          create: "Crea la scheda",
+          clear: "Svuota",
+          chars: "caratteri",
+          reading: "Lettura dell'articolo…",
+          pickLanguage: "Scegli almeno una lingua per il riassunto.",
+          noClient: "La pagina non ha potuto caricare la libreria client dalla CDN. Controlla la rete e ricarica.",
+          failed: "Richiesta non riuscita:",
+          emptyTitle: "Nessuna scheda.",
+          emptyBody: "Incolla un articolo a sinistra e crea una scheda. Uno studio debole riceve comunque una scheda, con le sue avvertenze. Un testo che non è uno studio sul caffè viene invece inviato a un ricercatore.",
+          relevance: "Rilevanza",
+          relevanceText: ["", "Contesto", "Da leggere", "Da applicare"],
+          trust: "Affidabilità",
+          trustText: { high: "Alta", medium: "Media", low: "Bassa" },
+          study: "Tipo di studio",
+          sample: "Dimensione del campione",
+          notStated: "Non indicata nel testo",
+          warnings: {
+            not_peer_reviewed: "Senza revisione paritaria",
+            small_sample: "Campione ridotto",
+            methods_not_described: "Metodi non descritti",
+            no_controls: "Senza controlli",
+          },
+          summaryOf: { en: "English", it: "Italiano" },
+          declineTitle: "Nessuna scheda. Deve leggerlo un ricercatore.",
+          noReason: "Nessun motivo indicato.",
+          took: (s) => `Letto in ${s} secondi`,
+          copy: "Copia JSON",
+          copied: "Copiato",
+          raw: "Mostra il JSON",
+          example: "Carica un esempio",
+          elapsed: (s) => `${s} secondi finora. Un articolo richiede di solito da 10 a 15.`,
+          helpOpen: "Come funziona questa pagina",
+          helpTitle: "Come funziona questa pagina",
+          help1: "Incolla il testo di un articolo o di un abstract scientifico sul caffè, in inglese. Oppure carica l'esempio.",
+          help2: "Aggiungi titolo, fonte e la decisione che devi prendere, se li conosci. Rendono più preciso il punteggio di rilevanza.",
+          help3: "Crea la scheda. Ottieni il risultato principale, un punteggio di rilevanza, un livello di affidabilità con le avvertenze e un riassunto in inglese e in italiano.",
+          helpRead: "La rilevanza va da un chicco (contesto) a tre (da applicare). Uno studio debole riceve comunque una scheda, segnata come poco affidabile. Un testo che non è uno studio sul caffè non riceve la scheda e viene inviato a un ricercatore.",
+          helpPrivacy: "Il testo che incolli viene inviato a un modello di IA esterno. Non incollare documenti riservati. La scheda è una prima lettura, non sostituisce la lettura dell'articolo.",
+          helpClose: "Ho capito",
+          rights: "Tutti i diritti riservati.",
+        },
+      };
 
-      // The model has no memory. This array is the entire conversation.
-      const history = [];
+      const CATEGORY = {
+        en: {},
+        it: {
+          agronomy: "Agronomia",
+          processing: "Lavorazione",
+          roasting: "Tostatura",
+          health: "Salute",
+          sustainability: "Sostenibilità",
+          other: "Altro",
+        },
+      };
 
-      function addTurn(who, text) {
-        const div = document.createElement("div");
-        div.className = "turn";
-        div.innerHTML = `<span class="who">${who}:</span> `;
-        const span = document.createElement("span");
-        div.appendChild(span);
-        span.textContent = text;
-        log.appendChild(div);
-        log.scrollTop = log.scrollHeight;
-        return span;
+      // A real, open-access abstract, so a first-time visitor can try the page in one click.
+      const EXAMPLE = {
+        "text": "Dietary polyphenols may have a protective role against the development of CVD. Thus, we aimed to investigate the effects of green coffee (GC), rich in chlorogenic acid, and black coffee (BC) on cardiovascular markers. A randomised pilot crossover study was performed on healthy subjects who consumed both coffees for 2 weeks. We measured anthropometry, blood pressure, and arterial elasticity after each intervention and collected urine samples to monitor antioxidant capacity. Free cortisol and cortisone levels were obtained from urine and analysed by specific ELISA methods. Systolic blood pressure (P = 0.018) and arterial elasticity (P = 0.001) were significantly reduced after GC. BMI (P = 0.04 for BC; P = 0.01 for GC) and abdominal fat (P = 0.01 for BC; P = 0.009 for GC) were also significantly reduced with no changes in energy intake. Urinary free cortisol was significantly reduced from 125.6 ± 85.9 nmol/day to 76.0 ± 54.9 nmol/day following GC and increased to 132.1 ± 89.1 nmol/day after BC. Urinary free cortisone increased by 18% following BC and 9% following GC (nonsignificant). Cortisol/cortisone ratio (indicating 11β-HSD1 activity) was reduced after GC (from 3.5 ± 1.9 to 1.7 ± 1.04, P = 0.002). This suggests that GC can play a role in reducing cardiovascular risk factors. Further research including hypertensive and overweight individuals will now be justified to clarify whether GC could have a therapeutic role in CVD.",
+        "title": "Consumption of green coffee reduces blood pressure and body composition by influencing 11β-HSD1 enzyme activity in healthy individuals: a pilot crossover study using green and black coffee",
+        "source": "BioMed Research International (2014), open access"
+      };
+
+      let lang = store.get("lang") || (navigator.language.startsWith("it") ? "it" : "en");
+      const t = () => TEXT[lang];
+      let lastCard = null; // { data, seconds } so the sheet can be redrawn in the other language
+      let loadingSince = null; // performance.now() while a card is being created
+      let revealNext = false; // true only for the first drawing of a new card
+
+      function applyLanguage() {
+        document.documentElement.lang = lang;
+        for (const node of document.querySelectorAll("[data-i18n]")) node.textContent = t()[node.dataset.i18n];
+        for (const node of document.querySelectorAll("[data-i18n-placeholder]")) node.placeholder = t()[node.dataset.i18nPlaceholder];
+        for (const node of document.querySelectorAll("[data-i18n-label]")) node.setAttribute("aria-label", t()[node.dataset.i18nLabel]);
+        for (const button of document.querySelectorAll("[data-lang]")) button.setAttribute("aria-pressed", String(button.dataset.lang === lang));
+        updateCount();
+        renderSheet();
+      }
+      for (const button of document.querySelectorAll("[data-lang]")) {
+        button.addEventListener("click", () => {
+          lang = button.dataset.lang;
+          store.set("lang", lang);
+          applyLanguage();
+        });
       }
 
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const message = input.value.trim();
-        if (!message) return;
-        input.value = "";
+      const root = document.documentElement;
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      root.dataset.theme = store.get("theme") || (prefersDark ? "dark" : "light");
+      document.getElementById("theme").addEventListener("click", () => {
+        root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+        store.set("theme", root.dataset.theme);
+      });
 
-        addTurn("You", message);
-        const out = addTurn("Assistant", "");
+      // --- Small helpers -----------------------------------------------------
+      const status = document.getElementById("status");
+      const sheet = document.getElementById("sheet");
+      const text = document.getElementById("text");
+      const go = document.getElementById("go");
 
-        // submit() streams; each event carries the reply so far.
-        let reply = "";
-        const job = client.submit("/chat", { message, history });
-        for await (const event of job) {
-          if (event.type === "data") {
-            reply = event.data[0];
-            out.textContent = reply;
-            log.scrollTop = log.scrollHeight;
+      function el(tag, content, className) {
+        const node = document.createElement(tag);
+        if (content !== undefined) node.textContent = content;
+        if (className) node.className = className;
+        return node;
+      }
+      function say(message, isError = false) {
+        status.textContent = message;
+        status.className = isError ? "error" : "";
+      }
+      function updateCount() {
+        document.getElementById("count").textContent = `${text.value.length} ${t().chars}`;
+      }
+      function fitText() {
+        // Reset first, or the box could never shrink after text is deleted.
+        text.style.height = "auto";
+        text.style.height = `${text.scrollHeight + 2}px`;
+      }
+      text.addEventListener("input", () => {
+        updateCount();
+        fitText();
+      });
+
+      // --- The sheet ---------------------------------------------------------
+      function beanIcon() {
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+        use.setAttribute("href", "#bean");
+        svg.appendChild(use);
+        return svg;
+      }
+
+      // Updates only the clock line, so the bean animation is not restarted every second.
+      function tick() {
+        const line = document.getElementById("loader-time");
+        if (line && loadingSince !== null) line.textContent = t().elapsed(Math.floor((performance.now() - loadingSince) / 1000));
+      }
+
+      function meter(name, value, className) {
+        const box = el("div");
+        box.appendChild(el("div", name, "meter-name"));
+        box.appendChild(el("div", value, `meter-value ${className || ""}`));
+        return box;
+      }
+
+      function renderSheet() {
+        sheet.replaceChildren();
+        if (loadingSince !== null) {
+          const loader = el("div", undefined, "loader");
+          const beans = el("div", undefined, "beans");
+          beans.setAttribute("aria-hidden", "true");
+          for (let i = 0; i < 3; i++) beans.appendChild(beanIcon());
+          loader.appendChild(beans);
+          loader.appendChild(el("div", t().reading, "loader-text"));
+          loader.appendChild(el("div", "", "loader-time")).id = "loader-time";
+          sheet.appendChild(loader);
+          tick();
+          return;
+        }
+        if (!lastCard) {
+          const empty = el("div", undefined, "empty");
+          empty.appendChild(el("p", t().emptyTitle)).style.fontWeight = "600";
+          empty.appendChild(el("p", t().emptyBody));
+          sheet.appendChild(empty);
+          return;
+        }
+        const { data, seconds } = lastCard;
+        const body = el("div", undefined, revealNext ? "sheet-body reveal" : "sheet-body");
+        revealNext = false;
+
+        if (data.needs_human) {
+          const box = el("div", undefined, "decline");
+          box.appendChild(el("h2", t().declineTitle));
+          box.appendChild(el("p", data.needs_human_reason || t().noReason));
+          body.appendChild(box);
+        } else {
+          const head = el("div", undefined, "sheet-head");
+          // The card keeps one English vocabulary; only the label shown is translated.
+          head.appendChild(el("div", CATEGORY[lang][data.category] || data.category || "", "category"));
+          body.appendChild(head);
+          if (data.main_finding) body.appendChild(el("p", data.main_finding, "finding"));
+
+          const meters = el("div", undefined, "meters");
+          if (data.relevance) {
+            const box = meter(t().relevance, t().relevanceText[data.relevance]);
+            const beans = el("div", undefined, "beans");
+            beans.setAttribute("aria-hidden", "true");
+            for (let i = 1; i <= 3; i++) {
+              const svg = beanIcon();
+              svg.style.setProperty("--n", i - 1);
+              if (i <= data.relevance) svg.classList.add("on");
+              beans.appendChild(svg);
+            }
+            box.appendChild(beans);
+            meters.appendChild(box);
           }
+          if (data.trust_level) {
+            const box = meter(t().trust, t().trustText[data.trust_level], `trust-${data.trust_level}`);
+            if ((data.trust_warnings || []).length) {
+              const list = el("ul", undefined, "warnings");
+              for (const warning of data.trust_warnings) list.appendChild(el("li", t().warnings[warning] || warning));
+              box.appendChild(list);
+            }
+            meters.appendChild(box);
+          }
+          if (data.study_type) meters.appendChild(meter(t().study, data.study_type));
+          meters.appendChild(meter(t().sample, data.sample_size ?? t().notStated));
+          body.appendChild(meters);
+
+          const columns = el("div", undefined, "langs-out");
+          for (const code of ["en", "it"]) {
+            const summary = data[`summary_${code}`];
+            const notes = data[`notes_${code}`];
+            if (!summary && !notes) continue;
+            const column = el("div", undefined, "lang-col");
+            column.lang = code;
+            column.appendChild(el("h3", t().summaryOf[code]));
+            if (summary) column.appendChild(el("p", summary));
+            if (notes) column.appendChild(el("p", notes, "note"));
+            columns.appendChild(column);
+          }
+          if (columns.children.length === 2) columns.classList.add("both");
+          body.appendChild(columns);
         }
 
-        history.push({ role: "user", content: message });
-        history.push({ role: "assistant", content: reply });
+        const foot = el("div", undefined, "sheet-foot");
+        foot.appendChild(el("span", t().took(seconds), "took"));
+        const copy = el("button", t().copy, "plain");
+        copy.type = "button";
+        copy.addEventListener("click", async () => {
+          await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+          copy.textContent = t().copied;
+        });
+        foot.appendChild(copy);
+        body.appendChild(foot);
+
+        const raw = el("details");
+        raw.appendChild(el("summary", t().raw));
+        raw.appendChild(el("pre", JSON.stringify(data, null, 2)));
+        body.appendChild(raw);
+
+        [...body.children].forEach((child, index) => child.style.setProperty("--i", index));
+        sheet.appendChild(body);
+      }
+
+      applyLanguage();
+
+      fetch("/health")
+        .then((r) => r.json())
+        .then((h) => (document.getElementById("model").textContent = h.model))
+        .catch(() => (document.getElementById("model").textContent = "?"));
+
+      // NOTE: this loads the Gradio client from a public CDN. On a locked-down
+      // corporate network that request may simply fail, so say so on the page
+      // rather than leaving two forms that silently do nothing.
+      let client;
+      try {
+        const { Client } = await import("https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js");
+        client = await Client.connect(window.location.origin);
+      } catch (err) {
+        say(t().noClient, true);
+        go.disabled = true;
+        throw err;
+      }
+
+      // --- Help ----------------------------------------------------------------
+      const help = document.getElementById("help");
+      const helpButton = document.getElementById("help-btn");
+      function setHelp(open) {
+        help.hidden = !open;
+        helpButton.setAttribute("aria-expanded", String(open));
+        if (open) document.getElementById("help-close").focus();
+      }
+      helpButton.addEventListener("click", () => setHelp(help.hidden));
+      document.getElementById("help-close").addEventListener("click", () => {
+        setHelp(false);
+        helpButton.focus();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !help.hidden) {
+          setHelp(false);
+          helpButton.focus();
+        }
+      });
+      document.addEventListener("click", (e) => {
+        if (!help.hidden && !help.contains(e.target) && e.target !== helpButton) setHelp(false);
+      });
+      // Open it once for a first-time visitor.
+      if (!store.get("seenHelp")) {
+        setHelp(true);
+        store.set("seenHelp", "1");
+      }
+
+      // --- Create a card -----------------------------------------------------
+      document.getElementById("example").addEventListener("click", () => {
+        text.value = EXAMPLE.text;
+        document.getElementById("title").value = EXAMPLE.title;
+        document.getElementById("source").value = EXAMPLE.source;
+        updateCount();
+        fitText();
+        go.focus();
+      });
+
+      document.getElementById("clear").addEventListener("click", () => {
+        document.getElementById("card-form").reset();
+        lastCard = null;
+        say("");
+        updateCount();
+        fitText();
+        renderSheet();
+      });
+
+      document.getElementById("card-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const languages = [...document.querySelectorAll("#out-langs input:checked")].map((box) => box.value);
+        if (!languages.length) return say(t().pickLanguage, true);
+
+        go.disabled = true;
+        say("");
+        const started = performance.now();
+        loadingSince = started;
+        renderSheet();
+        // A long paper pushes the button far down; bring the card back into view.
+        const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        sheet.scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "start" });
+        const clock = setInterval(tick, 1000);
+        try {
+          const job = client.submit("/summarize_research_paper", {
+            document_text: text.value,
+            title: document.getElementById("title").value || null,
+            source: document.getElementById("source").value || null,
+            focus: document.getElementById("focus").value || null,
+            output_languages: languages,
+          });
+          // Each event carries the full reply so far; only the last one is the
+          // validated card, so keep overwriting and parse once at the end.
+          let latest = "";
+          for await (const event of job) {
+            if (event.type === "data") latest = event.data[0];
+          }
+          lastCard = { data: JSON.parse(latest), seconds: ((performance.now() - started) / 1000).toFixed(1) };
+          revealNext = true;
+        } catch (err) {
+          say(`${t().failed} ${err.message || err}`, true);
+        } finally {
+          clearInterval(clock);
+          loadingSince = null;
+          renderSheet();
+          go.disabled = false;
+        }
       });
     </script>
   </body>
